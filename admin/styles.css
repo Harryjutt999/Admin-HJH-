@@ -1,1 +1,5 @@
-
+body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;padding:20px;background:#f6f8fa}
+.container{max-width:900px;margin:0 auto;background:white;padding:20px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,0.05)}
+input,textarea{width:100%;padding:8px;margin:6px 0}
+button{margin:6px}
+li{margin-bottom:12px}
