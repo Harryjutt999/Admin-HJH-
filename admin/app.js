@@ -1,37 +1,4 @@
-// Supabase init
-const SUPABASE_URL = "https://apywqhvxuvhmznlefzyh.supabase.co";   // apna supabase project URL
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFweXdxaHZ4dXZobXpubGVmenloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzNDg0NDgsImV4cCI6MjA3MzkyNDQ0OH0.nQ2YylEtDMgPKG5lcESDK_q7YmIcRzvelogr-9nWo3o";                     // apna anon public key
-
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// wrapper functions (db object jaisa)
-const db = {
-  supa: supabase,
-  async signInEmail(email) {
-    return await supabase.auth.signInWithOtp({ email });
-  },
-  async signOut() {
-    return await supabase.auth.signOut();
-  },
-  async listTools() {
-    const { data, error } = await supabase.from("tools").select("*");
-    if (error) throw error;
-    return data;
-  },
-  async createTool(obj) {
-    const { error } = await supabase.from("tools").insert([obj]);
-    if (error) throw error;
-  },
-  async updateTool(id, obj) {
-    const { error } = await supabase.from("tools").update(obj).eq("id", id);
-    if (error) throw error;
-  },
-  async deleteTool(id) {
-    const { error } = await supabase.from("tools").delete().eq("id", id);
-    if (error) throw error;
-  }
-};
-
+// admin/app.js
 const signinBtn = document.getElementById('signin');
 const signoutBtn = document.getElementById('signout');
 const emailInput = document.getElementById('email');
@@ -41,20 +8,11 @@ const newToolBtn = document.getElementById('newTool');
 const toolForm = document.getElementById('toolForm');
 const saveBtn = document.getElementById('save');
 const cancelBtn = document.getElementById('cancel');
-const toolsSection = document.getElementById('toolsSection');
 
 let editingId = null;
 
-// helper: show/hide tools
-function showToolsUI(user) {
-  if (user) {
-    toolsSection.style.display = "block";
-    toolForm.style.display = "none";
-  } else {
-    toolsSection.style.display = "none";
-    toolForm.style.display = "none";
-  }
-}
+// hide tools by default
+document.querySelector('section:nth-of-type(3)').style.display = 'none';
 
 async function refreshTools() {
   toolsList.innerHTML = 'Loading...';
@@ -67,11 +25,19 @@ async function refreshTools() {
       const edit = document.createElement('button'); edit.textContent = 'Edit';
       edit.onclick = () => openEdit(t);
       const del = document.createElement('button'); del.textContent = 'Delete';
-      del.onclick = async () => { if (confirm('Delete?')) { await db.deleteTool(t.id); refreshTools(); } };
-      li.appendChild(edit); li.appendChild(del);
+      del.onclick = async () => {
+        if (confirm('Delete?')) {
+          await db.deleteTool(t.id);
+          refreshTools();
+        }
+      };
+      li.appendChild(edit);
+      li.appendChild(del);
       toolsList.appendChild(li);
-    })
-  } catch (e) { toolsList.innerHTML = 'Error: ' + e.message }
+    });
+  } catch (e) {
+    toolsList.innerHTML = 'Error: ' + e.message;
+  }
 }
 
 function openEdit(t) {
@@ -90,9 +56,9 @@ newToolBtn.onclick = () => {
   document.getElementById('description').value = '';
   document.getElementById('active').checked = true;
   toolForm.style.display = 'block';
-}
+};
 
-cancelBtn.onclick = () => { toolForm.style.display = 'none'; }
+cancelBtn.onclick = () => { toolForm.style.display = 'none'; };
 
 saveBtn.onclick = async () => {
   const obj = {
@@ -107,27 +73,46 @@ saveBtn.onclick = async () => {
     else await db.createTool(obj);
     toolForm.style.display = 'none';
     await refreshTools();
-  } catch (e) { alert('Error ' + e.message) }
-}
+  } catch (e) { alert('Error ' + e.message); }
+};
 
 signinBtn.onclick = async () => {
   const email = emailInput.value.trim();
   if (!email) return alert('Enter email');
-  await db.signInEmail(email);
-  alert('Check your email for a magic link');
-}
-
-signoutBtn.onclick = async () => { await db.signOut(); location.reload(); }
-
-// initialize
-(async function () {
-  const { data: { user } } = await db.supa.auth.getUser();
-  if (user) {
-    userInfo.textContent = 'Signed in: ' + user.email;
-    signoutBtn.style.display = 'inline-block';
-    showToolsUI(user);
-    refreshTools();
+  const { error } = await db.signInEmail(email);
+  if (error) {
+    alert('Error: ' + error.message);
   } else {
-    showToolsUI(null);
+    alert('Check your email for a magic link');
+  }
+};
+
+signoutBtn.onclick = async () => {
+  await db.signOut();
+  location.reload();
+};
+
+// 🔑 Handle login state
+db.supa.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    userInfo.textContent = 'Signed in: ' + session.user.email;
+    signoutBtn.style.display = 'inline-block';
+    document.querySelector('section:nth-of-type(3)').style.display = 'block'; // show tools section
+    await refreshTools();
+  } else {
+    userInfo.textContent = '';
+    signoutBtn.style.display = 'none';
+    document.querySelector('section:nth-of-type(3)').style.display = 'none'; // hide tools section
+  }
+});
+
+// 🔄 Check current user on page load
+(async function () {
+  const { data } = await db.supa.auth.getUser();
+  if (data.user) {
+    userInfo.textContent = 'Signed in: ' + data.user.email;
+    signoutBtn.style.display = 'inline-block';
+    document.querySelector('section:nth-of-type(3)').style.display = 'block';
+    await refreshTools();
   }
 })();
